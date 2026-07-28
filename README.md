@@ -55,9 +55,14 @@ run.sh                   Single command: install deps, build frontend, start ser
 
 | Metric | Value |
 |---|---|
-| Overall accuracy | **91%** |
-| FAKE — precision / recall / F1 | 86% / 97% / 91% |
-| REAL — precision / recall / F1 | 97% / 84% / 90% |
+| Overall accuracy | **95.62%** |
+| FAKE — precision / recall / F1 | 93.29% / 98.30% / 95.73% |
+| REAL — precision / recall / F1 | 98.20% / 92.93% / 95.49% |
+
+> Retrained via `backend/training/train_model.py` with extra training-only
+> augmentation (brightness/contrast/JPEG-quality/noise jitter) to improve
+> generalization to real-world phone photos. See
+> `backend/training/README.md` for how this was produced.
 
 These are the real, reported numbers (see `backend/app/config.py::TRAINING_METRICS`)
 and are also displayed on the app's **Model Info** page alongside

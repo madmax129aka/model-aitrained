@@ -71,10 +71,10 @@ TRAINING_METRICS = {
         "real_images": 10000,
         "fake_images": 10000,
     },
-    "overall_accuracy": 0.91,
+    "overall_accuracy": 0.9562,
     "per_class": {
-        "FAKE": {"precision": 0.86, "recall": 0.97, "f1_score": 0.91},
-        "REAL": {"precision": 0.97, "recall": 0.84, "f1_score": 0.90},
+        "FAKE": {"precision": 0.9329, "recall": 0.9830, "f1_score": 0.9573},
+        "REAL": {"precision": 0.9820, "recall": 0.9293, "f1_score": 0.9549},
     },
     "architecture_summary": [
         "Input (64x64x3 RGB image)",
@@ -89,8 +89,16 @@ TRAINING_METRICS = {
         "Dense(1, Sigmoid) -- outputs P(REAL); AI probability = 1 - output",
     ],
     "training_details": {
-        "optimizer": "Adam (lr=1e-3)",
+        "optimizer": "Adam (lr=1e-3, with ReduceLROnPlateau)",
         "loss": "Binary Crossentropy",
         "label_mapping": "0 = FAKE (AI-generated), 1 = REAL",
+        "extra_training_augmentation": (
+            "Brightness/contrast/saturation jitter, random JPEG-quality "
+            "re-encoding, and light gaussian noise applied only in the "
+            "training data pipeline (not baked into the saved model), to "
+            "improve generalization from CIFAKE's CIFAR-10-sourced REAL "
+            "images to real-world phone/camera photos."
+        ),
+        "early_stopping": "Stopped at epoch 24 (patience=5 on val_accuracy); best weights from epoch 19 restored.",
     },
 }
