@@ -53,11 +53,17 @@ label mapping is worse than a crash.
 ## 2. Install training dependencies
 
 ```bash
-pip install -r requirements-training.txt
+pip install -q -r requirements-training.txt
 ```
 
 (These are separate from `backend/requirements.txt` — you don't need
 matplotlib/scikit-learn/kagglehub on your production server.)
+
+> **Do not** also install `requirements-tfjs.txt` in this same step/environment
+> — it pins its own `tensorflow` version and will conflict with the
+> tensorflow this step needs (and with Colab's preinstalled tensorflow),
+> causing a `ResolutionImpossible` pip error. TF.js export is optional and
+> covered separately in step 4 below.
 
 ## 3. Run training
 
@@ -100,8 +106,16 @@ not leave the old numbers in place if you retrained — they must reflect the
 model file that's actually being served.
 
 If you also want an updated browser-side (TensorFlow.js) copy of the model,
-re-run with `--export-tfjs` and copy the resulting `model.json` +
-`.bin` shard file(s) into `frontend/public/model/`.
+do this in a **separate step** (a fresh Colab runtime, or a new virtualenv)
+to avoid the dependency conflict mentioned above:
+
+```bash
+pip install -q -r requirements-tfjs.txt
+python train_model.py --data-dir /path/to/cifake --epochs 30 --export-tfjs
+```
+
+Then copy the resulting `model.json` + `.bin` shard file(s) into
+`frontend/public/model/`.
 
 ## 5. Optional: further improving real-world generalization
 

@@ -1,11 +1,28 @@
 # Dependencies for train_model.py -- NOT part of the deployed backend
 # (backend/requirements.txt). Install these only in your training
 # environment (e.g. Google Colab), not on the production server.
-tensorflow==2.16.1
-scikit-learn==1.5.2
-matplotlib==3.9.2
-numpy==1.26.4
-# Optional, only needed if you pass --export-tfjs:
-tensorflowjs==4.20.0
-# Optional, convenient way to download CIFAKE directly from Kaggle in Colab:
-kagglehub==0.3.0
+#
+# NOTE: no tensorflow pin here on purpose. Google Colab ships with a
+# recent, working TensorFlow + GPU driver setup already installed --
+# reinstalling a specific pinned version is unnecessary and can trigger
+# pip dependency-resolution conflicts (this is exactly what happens if you
+# also install tensorflowjs in the same environment, since it pins its own
+# tensorflow version). If you are NOT on Colab and have no tensorflow
+# installed at all, uncomment the line below.
+# tensorflow>=2.16,<2.17
+scikit-learn>=1.5,<1.6
+matplotlib>=3.9,<3.10
+numpy>=1.26,<2.0
+# Convenient way to download CIFAKE directly from Kaggle in Colab:
+kagglehub>=0.3,<0.4
+
+# --- Optional: TensorFlow.js export ---------------------------------------
+# Do NOT install tensorflowjs in the same environment/step as the packages
+# above -- it pins its own (older) tensorflow version and will conflict
+# with Colab's preinstalled tensorflow. If you need a browser-side model
+# export (--export-tfjs), install it separately in requirements-tfjs.txt
+# AFTER training has already finished and the .keras model is saved, e.g.
+# in a fresh Colab runtime or a separate virtualenv:
+#
+#   pip install -r requirements-tfjs.txt
+#   python -c "import tensorflowjs as tfjs; ..."  # or re-run train_model.py --export-tfjs there
