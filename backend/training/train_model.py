@@ -187,21 +187,29 @@ def _extra_train_augmentation(image: tf.Tensor, label: tf.Tensor) -> tuple:
     # Simulate varying JPEG compression quality (common real-world artifact
     # that differs a lot between cameras/platforms/re-uploads).
     #
-    # NOTE: tf.image.encode_jpeg() requires a plain Python int for its
-    # `quality` argument, which does NOT work inside a tf.data pipeline
-    # where everything is a tensor (this caused a TypeError at runtime).
-    # tf.image.random_jpeg_quality() is the correct tool for this -- it
-    # samples and applies a random quality level entirely with tensor ops,
-    # so it's safe to use inside tf.data .map()/autograph.
-    def _jpeg_jitter(img):
+    # NOTE: `image` here is a BATCH of images (rank 4: [batch, H, W, C]),
+    # because image_dataset_from_directory() yields batches, not single
+    # images. JPEG encode/decode ops (including random_jpeg_quality) only
+    # operate on a SINGLE image (rank 3: [H, W, C]) -- calling them directly
+    # on a batch raises "Shape must be rank 3 but is rank 4". tf.map_fn
+    # applies the per-image op across the batch dimension, which fixes this.
+    #
+    # (Also note: tf.image.encode_jpeg() itself requires a plain Python int
+    # for `quality`, which doesn't work with tensor values inside a tf.data
+    # pipeline -- tf.image.random_jpeg_quality() avoids that separate issue
+    # by sampling the quality level internally using tensor ops.)
+    def _jpeg_jitter_single(img):
         img_uint8 = tf.cast(tf.clip_by_value(img, 0, 255), tf.uint8)
         jittered = tf.image.random_jpeg_quality(
             img_uint8, min_jpeg_quality=40, max_jpeg_quality=100
         )
         return tf.cast(jittered, tf.float32)
 
+    def _jpeg_jitter_batch(img_batch):
+        return tf.map_fn(_jpeg_jitter_single, img_batch, fn_output_signature=tf.float32)
+
     if tf.random.uniform([]) < 0.5:
-        image = _jpeg_jitter(image)
+        image = _jpeg_jitter_batch(image)
 
     # Light gaussian noise -- approximates sensor noise present in real
     # camera photos but largely absent from synthetic/generated images.
