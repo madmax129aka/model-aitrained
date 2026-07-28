@@ -186,12 +186,19 @@ def _extra_train_augmentation(image: tf.Tensor, label: tf.Tensor) -> tuple:
 
     # Simulate varying JPEG compression quality (common real-world artifact
     # that differs a lot between cameras/platforms/re-uploads).
+    #
+    # NOTE: tf.image.encode_jpeg() requires a plain Python int for its
+    # `quality` argument, which does NOT work inside a tf.data pipeline
+    # where everything is a tensor (this caused a TypeError at runtime).
+    # tf.image.random_jpeg_quality() is the correct tool for this -- it
+    # samples and applies a random quality level entirely with tensor ops,
+    # so it's safe to use inside tf.data .map()/autograph.
     def _jpeg_jitter(img):
         img_uint8 = tf.cast(tf.clip_by_value(img, 0, 255), tf.uint8)
-        quality = tf.random.uniform([], minval=40, maxval=100, dtype=tf.int32)
-        encoded = tf.image.encode_jpeg(img_uint8, quality=quality)
-        decoded = tf.image.decode_jpeg(encoded, channels=3)
-        return tf.cast(decoded, tf.float32)
+        jittered = tf.image.random_jpeg_quality(
+            img_uint8, min_jpeg_quality=40, max_jpeg_quality=100
+        )
+        return tf.cast(jittered, tf.float32)
 
     if tf.random.uniform([]) < 0.5:
         image = _jpeg_jitter(image)
