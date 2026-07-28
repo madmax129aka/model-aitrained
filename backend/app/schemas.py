@@ -14,11 +14,10 @@ class SignalBreakdown(BaseModel):
 
 class AnalyzeResponse(BaseModel):
     verdict: str  # "Likely AI-Generated" | "Likely Authentic" | "Uncertain"
-    final_score: float  # 0-100 combined AI-probability score
+    final_score: float  # 0-100 AI-probability score, from the CNN model only
     signals: List[SignalBreakdown]
     heatmap_image: Optional[str] = None  # data URI
     original_image: Optional[str] = None  # data URI (thumbnail)
-    fft_spectrum_image: Optional[str] = None  # data URI
     model_predicted_label: str
     model_raw_output: float
     analysis_id: str

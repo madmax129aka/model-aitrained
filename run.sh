@@ -21,7 +21,7 @@ PORT="${PORT:-8000}"
 
 echo "=================================================================="
 echo " PixelTruth -- AI Image Detector"
-echo " Custom-trained CNN model (no external AI API) + FFT + EXIF signals"
+echo " Custom-trained CNN model (no external AI API)"
 echo "=================================================================="
 
 echo ""

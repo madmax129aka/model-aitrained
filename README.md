@@ -3,9 +3,9 @@
 PixelTruth detects whether an image is likely AI-generated or an authentic
 photograph. It is powered by a **custom-trained convolutional neural
 network** — trained from scratch on the [CIFAKE dataset](https://www.kaggle.com/datasets/birdy654/cifake-real-and-ai-generated-synthetic-images)
-(100,000 real vs. AI-generated images) — combined with two lightweight
-supporting signals (frequency-domain / FFT analysis and EXIF metadata
-checks). **No third-party AI-detection API is used anywhere in this app.**
+(100,000 real vs. AI-generated images). The AI-probability score is based
+solely on this model's own prediction.
+**No third-party AI-detection API is used anywhere in this app.**
 
 ## Project structure
 
@@ -19,9 +19,6 @@ backend/
     image_utils.py       Image <-> base64, heatmap compositing helpers
     report.py            One-page PDF report generation (reportlab)
     schemas.py            Pydantic response models
-    signals/
-      fft_signal.py       Frequency-domain (FFT) artifact analysis (numpy only)
-      exif_signal.py       EXIF metadata presence check (exifread)
   models/
     pixeltruth_model.keras   <-- the trained model (moved here from repo root)
   requirements.txt
@@ -29,7 +26,7 @@ backend/
 frontend/
   src/
     pages/               Analyzer, Model Info, Batch, History, About
-    components/          Gauge, VerdictCard, HeatmapViewer, FFTViewer, etc.
+    components/          Gauge, VerdictCard, HeatmapViewer, etc.
   public/
     model/               model.json + group1-shard1of1.bin (TF.js export, for reference)
     model-info/          confusion_matrix.png + training_curves.png
@@ -64,14 +61,14 @@ and are also displayed on the app's **Model Info** page alongside
 
 ## How a verdict is computed
 
-`POST /api/analyze` combines three signals into one weighted score (0–100 =
-"AI probability"):
+`POST /api/analyze` resizes the uploaded image to 64×64, runs
+`pixeltruth_model.keras`, and inverts the label mapping (`AI probability =
+1 - P(REAL)`) to produce a single 0–100 "AI probability" score. This score
+is the model's own prediction — no other signal is blended in.
 
-| Signal | Weight | What it does |
-|---|---|---|
-| Custom CNN model | 60% | Resizes to 64×64, runs `pixeltruth_model.keras`, inverts label mapping |
-| FFT frequency analysis | 20% | Looks for periodic upsampling artifacts in the frequency spectrum (numpy) |
-| EXIF metadata check | 20% | Checks for camera make/model/EXIF tags (exifread) |
+> Earlier versions of this project also combined in a frequency-domain
+> (FFT) analysis and an EXIF metadata check at 20% weight each. Those have
+> been removed; the score is now the CNN's output alone.
 
 Final score → verdict: **≥65 → Likely AI-Generated**, **≤35 → Likely
 Authentic**, otherwise **Uncertain**.

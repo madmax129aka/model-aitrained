@@ -37,11 +37,12 @@ REAL_LABEL = 1
 # raw 0-255 pixel values into the model. Do NOT divide by 255 in preprocessing.
 
 # ---------------------------------------------------------------------------
-# Signal weights (must sum to 1.0)
+# Signal weights
 # ---------------------------------------------------------------------------
-WEIGHT_CNN = 0.60   # our trained CNN model
-WEIGHT_FFT = 0.20   # frequency-domain / FFT periodic-artifact analysis
-WEIGHT_EXIF = 0.20  # metadata / EXIF presence check
+# NOTE: The FFT frequency-domain signal and EXIF metadata signal have been
+# removed from scoring. The final AI-probability score is now based solely
+# on our custom-trained CNN model's output.
+WEIGHT_CNN = 1.00   # our trained CNN model is the sole signal
 
 # ---------------------------------------------------------------------------
 # Verdict thresholds (on the final combined 0-100 "AI probability" score)

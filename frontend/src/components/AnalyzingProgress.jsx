@@ -5,9 +5,7 @@ const STAGES = [
   "Resizing to 64x64 input tensor...",
   "Running custom CNN inference...",
   "Computing input-gradient saliency...",
-  "Running FFT frequency analysis...",
-  "Checking EXIF metadata...",
-  "Combining weighted signals...",
+  "Finalizing verdict...",
 ];
 
 export default function AnalyzingProgress() {
