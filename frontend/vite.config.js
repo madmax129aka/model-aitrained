@@ -15,7 +15,11 @@ export default defineConfig({
         target: "http://localhost:8000",
         changeOrigin: true,
       },
-      "/model-info": {
+      // NOTE: this is the *static image asset* path (confusion_matrix.png,
+      // training_curves.png), served by FastAPI's StaticFiles mount. It is
+      // deliberately different from "/model-info", which is the React
+      // Router page route for the Model Info page (see src/pages/ModelInfoPage.jsx).
+      "/static": {
         target: "http://localhost:8000",
         changeOrigin: true,
       },

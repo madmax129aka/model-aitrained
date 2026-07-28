@@ -21,7 +21,7 @@ from typing import Optional
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from app import model_service
@@ -110,8 +110,13 @@ async def model_info():
         per_class=TRAINING_METRICS["per_class"],
         architecture_summary=TRAINING_METRICS["architecture_summary"],
         training_details=TRAINING_METRICS["training_details"],
-        confusion_matrix_url="/model-info/confusion_matrix.png",
-        training_curves_url="/model-info/training_curves.png",
+        # NOTE: served from /static/model-info/*, NOT /model-info/*, because
+        # "/model-info" is also a client-side React Router page route (see
+        # frontend/src/pages/ModelInfoPage.jsx). Mounting the static image
+        # assets at that same path would shadow the SPA route and break
+        # direct navigation/refresh on the Model Info page.
+        confusion_matrix_url="/static/model-info/confusion_matrix.png",
+        training_curves_url="/static/model-info/training_curves.png",
         model_source=(
             "Custom-trained CNN (trained from scratch by the project author on the "
             "CIFAKE dataset). No third-party AI-detection API is used."
@@ -193,12 +198,45 @@ async def report(
 # ---------------------------------------------------------------------------
 # Static file serving: confusion_matrix.png / training_curves.png, and (in
 # production) the built React frontend, all from this same FastAPI process.
+#
+# IMPORTANT: the model-info image assets are mounted at "/static/model-info"
+# (NOT "/model-info") because "/model-info" is a client-side React Router
+# page route. Mounting a StaticFiles directory directly at "/model-info"
+# would shadow that route and 404 on direct navigation/refresh.
 # ---------------------------------------------------------------------------
 if MODEL_INFO_ASSETS_DIR.exists():
-    app.mount("/model-info", StaticFiles(directory=str(MODEL_INFO_ASSETS_DIR)), name="model-info")
+    app.mount(
+        "/static/model-info",
+        StaticFiles(directory=str(MODEL_INFO_ASSETS_DIR)),
+        name="model-info-assets",
+    )
 
 if FRONTEND_DIST_DIR.exists():
-    app.mount("/", StaticFiles(directory=str(FRONTEND_DIST_DIR), html=True), name="frontend")
+    _INDEX_HTML_PATH = FRONTEND_DIST_DIR / "index.html"
+
+    # Serve built JS/CSS bundles (Vite emits these under dist/assets/).
+    _dist_assets_dir = FRONTEND_DIST_DIR / "assets"
+    if _dist_assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=str(_dist_assets_dir)), name="frontend-assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_frontend(full_path: str):
+        """
+        SPA catch-all: serves any other built static file that exists
+        directly (favicon.ico, manifest.json, etc.), and falls back to
+        index.html for every other path so React Router can handle
+        client-side routes (e.g. /batch, /history, /model-info) even on a
+        direct browser navigation or page refresh.
+
+        This route is registered last, so it only runs for requests that
+        didn't match any /api/* route or the /assets mount above.
+        """
+        candidate = FRONTEND_DIST_DIR / full_path
+        if full_path and candidate.is_file():
+            return FileResponse(str(candidate))
+        if _INDEX_HTML_PATH.exists():
+            return FileResponse(str(_INDEX_HTML_PATH))
+        raise HTTPException(status_code=404, detail="Frontend build not found.")
 else:
     @app.get("/")
     async def root_placeholder():

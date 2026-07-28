@@ -30,8 +30,7 @@ export default function VerdictCard({ result, onDownloadReport, downloading }) {
           {style.label}
         </span>
         <p className="mt-3 text-sm text-slate-400">
-          Combined score from our custom CNN, frequency-domain analysis, and
-          metadata check.
+          Score from our custom-trained CNN model.
         </p>
         <div className="mt-4 flex flex-wrap gap-2 text-xs font-mono text-slate-500">
           <span className="px-2 py-1 rounded bg-white/5 border border-forensic-border">
