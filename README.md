@@ -15,12 +15,16 @@ backend/
     main.py            FastAPI app: routes, startup model loading, static serving
     config.py           Paths, weights, thresholds, and the REAL reported training metrics
     model_service.py     Loads pixeltruth_model.keras, runs inference + saliency
-    analyzer.py          Combines the 3 signals into a final verdict
+    analyzer.py          Runs the CNN and builds the final verdict + heatmap
     image_utils.py       Image <-> base64, heatmap compositing helpers
     report.py            One-page PDF report generation (reportlab)
     schemas.py            Pydantic response models
   models/
     pixeltruth_model.keras   <-- the trained model (moved here from repo root)
+  training/
+    train_model.py       Standalone script to (re)train the CNN correctly (see below)
+    README.md             How to get the dataset and run training
+    requirements-training.txt
   requirements.txt
 
 frontend/
@@ -77,6 +81,20 @@ The explainability heatmap is a genuine **input-gradient saliency map** —
 the gradient of the CNN's output with respect to the input pixels, computed
 via `tf.GradientTape` directly against our own model's weights (not an
 approximation and not from a third-party API).
+
+## Retraining the model
+
+`backend/training/train_model.py` is a standalone script for (re)training
+`pixeltruth_model.keras` from scratch on CIFAKE. It builds the exact
+architecture the backend expects, trains with `EarlyStopping` +
+`ReduceLROnPlateau` + best-checkpoint saving, evaluates on the real 20,000
+-image held-out test set, and adds extra training-only augmentation
+(brightness/contrast/JPEG-quality/noise jitter) aimed at closing the
+domain gap between CIFAKE's CIFAR-10-style REAL images and real-world phone
+photos. **This must be run on a machine with internet access and ideally a
+GPU (e.g. Google Colab)** — see `backend/training/README.md` for full
+step-by-step instructions, including where to get the dataset and how to
+wire a retrained model back into this app.
 
 ## Running locally / deploying (e.g. on Replit)
 

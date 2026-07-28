@@ -1,0 +1,11 @@
+# Dependencies for train_model.py -- NOT part of the deployed backend
+# (backend/requirements.txt). Install these only in your training
+# environment (e.g. Google Colab), not on the production server.
+tensorflow==2.16.1
+scikit-learn==1.5.2
+matplotlib==3.9.2
+numpy==1.26.4
+# Optional, only needed if you pass --export-tfjs:
+tensorflowjs==4.20.0
+# Optional, convenient way to download CIFAKE directly from Kaggle in Colab:
+kagglehub==0.3.0
