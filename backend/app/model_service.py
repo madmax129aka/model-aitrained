@@ -128,25 +128,20 @@ def _preprocess(image: Image.Image) -> np.ndarray:
     values (float32) with shape (1, 64, 64, 3). Do NOT divide by 255 here --
     the model has its own internal Rescaling(1/255) layer that does this.
 
-    EXPERIMENTAL resolution-matching step: CIFAKE's source images are
-    natively 32x32 (built to match CIFAR-10's resolution exactly), then
-    upscaled to 64x64 for training via image_dataset_from_directory(). That
-    means EVERY training image the model ever saw -- REAL and FAKE alike --
-    has the soft, slightly-blurred look of a 32x32 image stretched to 64x64.
-    A real photo uploaded here (originally thousands of pixels, downscaled
-    directly to 64x64) is much sharper/more detailed than anything in the
-    training distribution, for either class, which can bias the model
-    toward one class regardless of actual content.
-
-    To test whether this fully or partially explains a systematic bias, we
-    first downscale to 32x32, then upscale back to 64x64 -- reproducing the
-    same soft/blurred resolution characteristics the model was trained on.
-    If this measurably changes results on real photos, it confirms the
-    resolution mismatch was a real contributing factor.
+    NOTE: an earlier experimental version of this function pre-blurred the
+    input (downscale to 32x32, then back up to 64x64) to match CIFAKE's
+    native 32x32 source resolution. That was reverted: testing showed it
+    just flipped the model's bias from "everything reads as FAKE" to
+    "everything reads as REAL" -- including an actual AI-generated test
+    image scoring only 1% AI probability. That result shows the model is
+    keying off image sharpness/blur as a shortcut signal rather than
+    genuine AI-generation artifacts, so "fixing" the blur level only
+    changes which direction the bias points, it does not fix the
+    underlying generalization problem. See backend/training/README.md for
+    the real fix (retrain with real-world photos mixed into the training
+    data, not just synthetic preprocessing tricks).
     """
-    rgb = image.convert("RGB")
-    downscaled = rgb.resize((32, 32), resample=Image.BILINEAR)
-    resized = downscaled.resize(INPUT_SIZE, resample=Image.BILINEAR)
+    resized = image.convert("RGB").resize(INPUT_SIZE, resample=Image.BILINEAR)
     arr = np.asarray(resized, dtype=np.float32)  # (64, 64, 3), values 0-255
     return np.expand_dims(arr, axis=0)
 
