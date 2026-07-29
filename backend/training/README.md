@@ -202,6 +202,78 @@ fine-tuned model to get comparable numbers, or clearly label the new
 metrics in `TRAINING_METRICS` as coming from your custom validation set so
 the Model Info page isn't misleading.
 
+## 5b. Alternative: retrain from scratch on 140k Real and Fake Faces
+
+Instead of fine-tuning, `train_model_faces.py` trains a brand-new model
+from scratch on the [140k Real and Fake Faces dataset](https://www.kaggle.com/datasets/xhlulu/140k-real-and-fake-faces)
+(real photographed faces from Flickr/FFHQ vs. StyleGAN-generated fake
+faces), and bumps the input resolution from 64x64 to **128x128** to
+preserve more fine detail.
+
+**Trade-off to understand first:** this dataset is faces-only. A model
+trained on it will likely perform worse on non-face AI-generated images
+(landscapes, objects, illustrations) than the CIFAKE-based model did on
+those. Only take this path if detecting fake/AI faces specifically is your
+priority, or if you plan to later combine this with CIFAKE (see the
+"Option 3" idea below).
+
+### 1. Get the dataset (Colab)
+
+```python
+!pip install -q tensorflow scikit-learn matplotlib kaggle
+!kaggle datasets download -d xhlulu/140k-real-and-fake-faces
+!unzip -q 140k-real-and-fake-faces.zip -d /content/data_faces
+```
+
+(Requires a `kaggle.json` API token uploaded to Colab -- same as
+`kagglehub` needed in section 1, but this dataset is downloaded via the
+`kaggle` CLI instead since it's not available through `kagglehub` directly.)
+
+### 2. Run training
+
+```bash
+python train_model_faces.py \
+  --data-dir /content/data_faces \
+  --epochs 20 \
+  --output-dir ./output_faces
+```
+
+The script **auto-detects** this dataset's nested folder layout
+(`real_vs_fake/real-vs-fake/{train,valid,test}/{real,fake}/`) by searching
+under `--data-dir`. If it can't find that layout, it prints every directory
+it found under `--data-dir` -- paste that output back if you hit this.
+
+### 3. Wire the new model in -- MORE steps than usual this time
+
+Because this changes the input resolution, there are two extra steps
+beyond the usual "copy the model file" workflow:
+
+1. Copy `output_faces/pixeltruth_model.keras` -> `backend/models/pixeltruth_model.keras`
+2. Copy `output_faces/confusion_matrix.png` -> `frontend/public/model-info/confusion_matrix.png`
+3. Copy `output_faces/training_curves.png` -> `frontend/public/model-info/training_curves.png`
+4. **Open `backend/app/config.py` and change `INPUT_SIZE = (64, 64)` to
+   `INPUT_SIZE = (128, 128)`.** This is not automatic -- if you skip this,
+   the backend will resize uploads to the wrong size and every prediction
+   will be meaningless (the model expects 128x128 input, not 64x64).
+5. Update `TRAINING_METRICS` in the same file with the real numbers the
+   script printed, AND update the `dataset` section to describe the 140k
+   Real and Fake Faces dataset instead of CIFAKE -- don't leave the old
+   CIFAKE description in place, it would misrepresent what the deployed
+   model was actually trained on.
+6. Test against **both** face photos and non-face images/AI content before
+   fully switching over, given the trade-off noted above.
+
+### Future option: combine CIFAKE + 140k Faces
+
+For a more robust model that handles both general objects and faces, the
+two datasets could be combined into one training run (doubling the data
+pipeline complexity, since their folder layouts and file namings differ).
+This is not implemented in either script yet -- if you want to pursue this,
+the folder-merging approach would be to copy/symlink both datasets' REAL
+and FAKE images into one combined directory structure before training with
+a version of `train_model.py`'s pipeline adjusted for the larger, mixed
+dataset size.
+
 ## 6. Other options for further improving real-world generalization
 
 1. **Increase input resolution** (e.g. 96x96 or 128x128 instead of 64x64) —

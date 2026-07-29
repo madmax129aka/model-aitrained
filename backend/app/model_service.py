@@ -8,8 +8,9 @@ There is no call to any external AI-detection API anywhere in this module --
 every prediction and every saliency gradient below comes from weights baked
 into pixeltruth_model.keras.
 
-The model architecture (see frontend/public/model/model.json) is:
-    Input(64,64,3)
+The model architecture (see frontend/public/model/model.json, or
+backend/app/config.py::INPUT_SIZE for the current input resolution) is:
+    Input(INPUT_SIZE, INPUT_SIZE, 3)
       -> [augmentation layers -- inference no-ops]
       -> Rescaling(1/255)          <-- model normalizes internally!
       -> Conv2D(32) -> BatchNorm -> MaxPool
@@ -124,9 +125,10 @@ def load_error() -> Optional[str]:
 
 def _preprocess(image: Image.Image) -> np.ndarray:
     """
-    Resize to the model's expected 64x64 input and return RAW 0-255 pixel
-    values (float32) with shape (1, 64, 64, 3). Do NOT divide by 255 here --
-    the model has its own internal Rescaling(1/255) layer that does this.
+    Resize to the model's expected input size (app/config.py::INPUT_SIZE)
+    and return RAW 0-255 pixel values (float32) with shape
+    (1, INPUT_SIZE[0], INPUT_SIZE[1], 3). Do NOT divide by 255 here -- the
+    model has its own internal Rescaling(1/255) layer that does this.
 
     NOTE: an earlier experimental version of this function pre-blurred the
     input (downscale to 32x32, then back up to 64x64) to match CIFAKE's
@@ -142,7 +144,7 @@ def _preprocess(image: Image.Image) -> np.ndarray:
     data, not just synthetic preprocessing tricks).
     """
     resized = image.convert("RGB").resize(INPUT_SIZE, resample=Image.BILINEAR)
-    arr = np.asarray(resized, dtype=np.float32)  # (64, 64, 3), values 0-255
+    arr = np.asarray(resized, dtype=np.float32)  # (H, W, 3), values 0-255
     return np.expand_dims(arr, axis=0)
 
 
@@ -157,12 +159,12 @@ def predict_with_saliency(image: Image.Image) -> dict:
         raw_output      float  -- sigmoid output, i.e. P(REAL) in [0, 1]
         ai_probability  float  -- 1 - raw_output, in [0, 1]
         predicted_label str    -- "REAL" or "FAKE" (whichever the model favors)
-        saliency        np.ndarray (64, 64) -- normalized per-pixel importance
+        saliency        np.ndarray (INPUT_SIZE) -- normalized per-pixel importance
     """
     if _model is None:
         raise RuntimeError("PixelTruth CNN model is not loaded")
 
-    input_batch = _preprocess(image)  # (1, 64, 64, 3), raw pixel values
+    input_batch = _preprocess(image)  # (1, H, W, 3), raw pixel values, H/W = INPUT_SIZE
     input_tensor = tf.convert_to_tensor(input_batch)
 
     # The actual prediction/verdict always comes from the real sigmoid model
@@ -183,7 +185,7 @@ def predict_with_saliency(image: Image.Image) -> dict:
         grad_output = gradient_target_model(input_tensor, training=False)
         scalar_grad_output = grad_output[0, 0]
 
-    grads = tape.gradient(scalar_grad_output, input_tensor)  # (1, 64, 64, 3)
+    grads = tape.gradient(scalar_grad_output, input_tensor)  # (1, H, W, 3), H/W = INPUT_SIZE
     if grads is None:
         # Extremely defensive fallback -- should not happen for this architecture.
         saliency = np.zeros(INPUT_SIZE, dtype=np.float32)
