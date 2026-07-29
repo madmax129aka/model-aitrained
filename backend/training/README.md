@@ -117,18 +117,97 @@ python train_model.py --data-dir /path/to/cifake --epochs 30 --export-tfjs
 Then copy the resulting `model.json` + `.bin` shard file(s) into
 `frontend/public/model/`.
 
-## 5. Optional: further improving real-world generalization
+## 5. Fixing systematic real-world bias: fine-tuning on your own images
 
-If, after retraining with the added augmentation, real-world photos are
-still misclassified more than you'd like, the next most effective levers
-(in rough order of effort) are:
+**Confirmed issue:** testing showed the base model relies on image
+sharpness/blur as a shortcut rather than learning genuine AI-generation
+artifacts (CIFAKE's source images are natively only 32x32 pixels, so the
+model never saw real-world-resolution photos of either class during
+training). This caused every real photo to score as "Likely AI-Generated"
+in one test, and — after an experimental blur-matching preprocessing
+change — every image (including an actual AI-generated one) to score as
+"Likely Authentic" instead. Both results point to the same root cause: the
+model needs to see real-world-resolution examples of BOTH classes during
+training, not just CIFAKE's 32x32-sourced images.
 
-1. **Mix in some of your own labeled real photos** as additional REAL
-   training examples, so the model directly sees phone-camera-style images
-   during training, not just CIFAR-10-style ones.
-2. **Increase input resolution** (e.g. 96x96 or 128x128 instead of 64x64) —
+**Do not** just mix a few hundred of your own images into the full 100k
+CIFAKE set and retrain from scratch — your images would be statistically
+drowned out and have almost no effect. Instead, use
+**`finetune_model.py`**, which loads the already-trained model and
+continues training it briefly, at a much lower learning rate, using ONLY
+your custom dataset. This nudges the model's decision boundary without
+needing anywhere close to 100,000 examples.
+
+### How many images you need
+
+| Tier | REAL images | FAKE (AI-generated) images |
+|---|---|---|
+| Minimum viable | 150–200 | 150–200 |
+| Good | 400–600 | 400–600 |
+| Ideal | 1,000+ | 1,000+ |
+
+Diversity matters more than raw count:
+- **REAL**: multiple different cameras/phones, varied lighting, varied
+  subjects (people, objects, scenery, groups), some screenshots, some
+  heavily compressed/re-uploaded images — not all from one device.
+- **FAKE**: multiple different AI generators (Gemini, Midjourney, DALL-E,
+  Stable Diffusion, etc.), varied styles and subjects — not just one tool.
+
+### Prepare your dataset
+
+```
+<custom-data-dir>/
+  REAL/   *.jpg / *.png   (your real photos)
+  FAKE/   *.jpg / *.png   (your AI-generated images)
+```
+
+Folder names must be exactly `REAL` and `FAKE` (uppercase), same convention
+as CIFAKE.
+
+### Run fine-tuning
+
+```bash
+python finetune_model.py \
+  --base-model ../models/pixeltruth_model.keras \
+  --custom-data-dir /path/to/your/real_and_fake_images \
+  --epochs 8 \
+  --output-dir ./finetune_output
+```
+
+Key differences from `train_model.py`:
+- Loads the **existing** trained model instead of building a new one from scratch.
+- Uses a much lower learning rate (`1e-5` by default vs. the original `1e-3`)
+  so it gently nudges the existing weights instead of overwriting them.
+- Keeps epochs low (default 8) — fine-tuning too long on a small custom
+  dataset will overfit to it and can destroy the general knowledge learned
+  from the original 100k-image CIFAKE training.
+- Warns if your dataset is too small (<50 per class) or too imbalanced
+  (>2x difference between REAL and FAKE counts).
+
+### After fine-tuning: verify before deploying
+
+**Test the fine-tuned model against several of your own real photos and
+AI-generated images that were NOT part of the fine-tuning dataset**, before
+replacing the deployed model. A model can look great on its own validation
+split while still being biased on genuinely new images — the whole point
+of fine-tuning is to fix real-world generalization, so real-world testing
+is the only way to confirm it worked.
+
+If it looks good, follow the same wiring steps as section 4 above, using
+`finetune_output/` instead of `training_output/`. Since the fine-tuning
+evaluation runs against your own small custom validation split (not the
+full 20,000-image CIFAKE test set), either re-run the original
+`train_model.py` evaluation against the full CIFAKE test set with this
+fine-tuned model to get comparable numbers, or clearly label the new
+metrics in `TRAINING_METRICS` as coming from your custom validation set so
+the Model Info page isn't misleading.
+
+## 6. Other options for further improving real-world generalization
+
+1. **Increase input resolution** (e.g. 96x96 or 128x128 instead of 64x64) —
    more detail can help the CNN pick up on genuine generation artifacts
    rather than dataset-specific quirks, at the cost of a larger/slower model.
-3. **Try a slightly larger backbone** (e.g. add a fourth Conv block or more
-   filters) if you have the compute budget — but only after step 1, since
-   more capacity without more diverse data usually just overfits harder.
+2. **Try a slightly larger backbone** (e.g. add a fourth Conv block or more
+   filters) if you have the compute budget — but only after fine-tuning on
+   real-world data, since more capacity without more diverse data usually
+   just overfits harder.
