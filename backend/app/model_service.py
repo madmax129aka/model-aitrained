@@ -127,8 +127,26 @@ def _preprocess(image: Image.Image) -> np.ndarray:
     Resize to the model's expected 64x64 input and return RAW 0-255 pixel
     values (float32) with shape (1, 64, 64, 3). Do NOT divide by 255 here --
     the model has its own internal Rescaling(1/255) layer that does this.
+
+    EXPERIMENTAL resolution-matching step: CIFAKE's source images are
+    natively 32x32 (built to match CIFAR-10's resolution exactly), then
+    upscaled to 64x64 for training via image_dataset_from_directory(). That
+    means EVERY training image the model ever saw -- REAL and FAKE alike --
+    has the soft, slightly-blurred look of a 32x32 image stretched to 64x64.
+    A real photo uploaded here (originally thousands of pixels, downscaled
+    directly to 64x64) is much sharper/more detailed than anything in the
+    training distribution, for either class, which can bias the model
+    toward one class regardless of actual content.
+
+    To test whether this fully or partially explains a systematic bias, we
+    first downscale to 32x32, then upscale back to 64x64 -- reproducing the
+    same soft/blurred resolution characteristics the model was trained on.
+    If this measurably changes results on real photos, it confirms the
+    resolution mismatch was a real contributing factor.
     """
-    resized = image.convert("RGB").resize(INPUT_SIZE, resample=Image.BILINEAR)
+    rgb = image.convert("RGB")
+    downscaled = rgb.resize((32, 32), resample=Image.BILINEAR)
+    resized = downscaled.resize(INPUT_SIZE, resample=Image.BILINEAR)
     arr = np.asarray(resized, dtype=np.float32)  # (64, 64, 3), values 0-255
     return np.expand_dims(arr, axis=0)
 
