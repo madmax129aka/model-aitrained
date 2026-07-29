@@ -1,11 +1,13 @@
 # PixelTruth backend dependencies
-# NOTE: pixeltruth_model.keras was exported from Keras 3 (see frontend/public/model/model.json
-# -> "generatedBy": "keras v3.13.2"). TensorFlow >= 2.16 ships Keras 3 by default, which is
-# required to load this .keras file correctly.
+# NOTE: pixeltruth_model.keras is a Keras 3 model. TensorFlow >= 2.16 ships
+# Keras 3 by default, which is required to load this .keras file correctly.
+# All inference happens server-side via this backend -- there is no
+# browser-based TensorFlow.js model anywhere in this project.
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
 python-multipart==0.0.9
 tensorflow==2.16.1
 numpy==1.26.4
 pillow==10.4.0
+exifread==3.0.0
 reportlab==4.2.2

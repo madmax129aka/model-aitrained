@@ -2,10 +2,13 @@
 Central configuration for the PixelTruth backend.
 
 IMPORTANT: PixelTruth uses a CUSTOM-TRAINED convolutional neural network
-(trained from scratch by the project author on the CIFAKE dataset). It does
-NOT call any third-party AI-detection API. All numbers in TRAINING_METRICS
-below are the real, reported evaluation numbers for that model and must not
-be altered or fabricated.
+(trained from scratch by the project author on the "140k Real and Fake
+Faces" dataset). It does NOT call any third-party AI-detection API. All
+numbers in TRAINING_METRICS below are the real, reported evaluation
+numbers for that model and must not be altered or fabricated.
+
+All inference happens server-side in this backend via tf.keras -- there is
+no browser-based TensorFlow.js inference anywhere in this app.
 """
 from pathlib import Path
 
@@ -23,8 +26,11 @@ MODEL_INFO_ASSETS_DIR = FRONTEND_DIR / "public" / "model-info"  # confusion_matr
 # ---------------------------------------------------------------------------
 # Model input / label mapping
 # ---------------------------------------------------------------------------
-# The model's Input layer is (None, 64, 64, 3) -- see frontend/public/model/model.json
-INPUT_SIZE = (64, 64)
+# The model's Input layer is (None, 128, 128, 3) -- confirmed from the
+# .keras file's config.json. This model was trained on 128x128 face crops
+# (up from the earlier 64x64 CIFAKE-based model) to preserve more of the
+# fine detail needed to catch modern generator artifacts.
+INPUT_SIZE = (128, 128)
 
 # Label mapping used during training: 0 = FAKE (AI-generated), 1 = REAL.
 # The model's final layer is Dense(1, activation="sigmoid"), so raw_output is
@@ -33,16 +39,16 @@ INPUT_SIZE = (64, 64)
 FAKE_LABEL = 0
 REAL_LABEL = 1
 
-# The model has an internal Rescaling(1./255) layer, so the backend must feed
-# raw 0-255 pixel values into the model. Do NOT divide by 255 in preprocessing.
+# The model has an internal Rescaling(1./255) layer (confirmed scale=1/255
+# in the .keras file's config.json), so the backend must feed raw 0-255
+# pixel values into the model. Do NOT divide by 255 in preprocessing.
 
 # ---------------------------------------------------------------------------
-# Signal weights
+# Signal weights (must sum to 1.0)
 # ---------------------------------------------------------------------------
-# NOTE: The FFT frequency-domain signal and EXIF metadata signal have been
-# removed from scoring. The final AI-probability score is now based solely
-# on our custom-trained CNN model's output.
-WEIGHT_CNN = 1.00   # our trained CNN model is the sole signal
+WEIGHT_CNN = 0.60   # our trained CNN model
+WEIGHT_FFT = 0.20   # frequency-domain / FFT periodic-artifact analysis
+WEIGHT_EXIF = 0.20  # metadata / EXIF presence check
 
 # ---------------------------------------------------------------------------
 # Verdict thresholds (on the final combined 0-100 "AI probability" score)
@@ -57,48 +63,52 @@ THRESHOLD_AUTHENTIC = 35.0   # score <= 35  -> "Likely Authentic"
 # ---------------------------------------------------------------------------
 TRAINING_METRICS = {
     "dataset": {
-        "name": "CIFAKE",
+        "name": "140k Real and Fake Faces",
         "description": (
-            "Real vs. AI-generated (Stable Diffusion) image classification dataset."
+            "Real human face photographs (from the FFHQ / Flickr-Faces "
+            "dataset) vs. AI-generated fake faces produced by StyleGAN."
         ),
-        "total_images": 100000,
-        "real_images": 50000,
-        "fake_images": 50000,
-        "train_val_split": "80/20",
+        "total_images": 140000,
+        "train_images": 100000,
+        "valid_images": 20000,
+        "test_images": 20000,
+        "split_description": "100,000 train / 20,000 valid / 20,000 test (perfectly balanced)",
+        "train_val_test_split": "100k / 20k / 20k",
     },
     "test_set": {
         "total_images": 20000,
         "real_images": 10000,
         "fake_images": 10000,
     },
-    "overall_accuracy": 0.9562,
+    "overall_accuracy": 0.94,
     "per_class": {
-        "FAKE": {"precision": 0.9329, "recall": 0.9830, "f1_score": 0.9573},
-        "REAL": {"precision": 0.9820, "recall": 0.9293, "f1_score": 0.9549},
+        "FAKE": {"precision": 0.96, "recall": 0.91, "f1_score": 0.93},
+        "REAL": {"precision": 0.91, "recall": 0.96, "f1_score": 0.94},
     },
     "architecture_summary": [
-        "Input (64x64x3 RGB image)",
-        "Data augmentation: RandomFlip (horizontal), RandomRotation (+/-10%), RandomZoom (10%) [training only]",
+        "Input (128x128x3 RGB image)",
+        "Data augmentation: RandomFlip (horizontal), RandomRotation (+/-10%), RandomZoom (10%), RandomBrightness (+/-10%) [training only]",
         "Rescaling(1/255) -- normalizes raw 0-255 pixel input internally",
         "Conv2D(32, 3x3, ReLU) -> BatchNormalization -> MaxPooling2D(2x2)",
         "Conv2D(64, 3x3, ReLU) -> BatchNormalization -> MaxPooling2D(2x2)",
         "Conv2D(128, 3x3, ReLU) -> BatchNormalization -> MaxPooling2D(2x2)",
+        "Conv2D(256, 3x3, ReLU) -> BatchNormalization -> MaxPooling2D(2x2)",
         "Flatten",
         "Dense(128, ReLU)",
         "Dropout(0.5)",
         "Dense(1, Sigmoid) -- outputs P(REAL); AI probability = 1 - output",
     ],
     "training_details": {
-        "optimizer": "Adam (lr=1e-3, with ReduceLROnPlateau)",
+        "optimizer": "Adam",
         "loss": "Binary Crossentropy",
         "label_mapping": "0 = FAKE (AI-generated), 1 = REAL",
-        "extra_training_augmentation": (
-            "Brightness/contrast/saturation jitter, random JPEG-quality "
-            "re-encoding, and light gaussian noise applied only in the "
-            "training data pipeline (not baked into the saved model), to "
-            "improve generalization from CIFAKE's CIFAR-10-sourced REAL "
-            "images to real-world phone/camera photos."
+        "input_resolution": "128x128 (increased from an earlier 64x64 CIFAKE-based model to preserve fine detail)",
+        "notes": (
+            "Trained on real photographed faces (FFHQ/Flickr) vs. StyleGAN- "
+            "generated fake faces. Because this dataset is faces-only, "
+            "detection accuracy is highest on photos that contain a clear "
+            "human face; the model was not trained on generic non-face "
+            "AI-generated imagery (e.g. landscapes, objects, illustrations)."
         ),
-        "early_stopping": "Stopped at epoch 24 (patience=5 on val_accuracy); best weights from epoch 19 restored.",
     },
 }

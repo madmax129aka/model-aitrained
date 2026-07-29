@@ -2,10 +2,12 @@ import React, { useEffect, useState } from "react";
 
 const STAGES = [
   "Reading image bytes...",
-  "Resizing to 64x64 input tensor...",
+  "Resizing to 128x128 input tensor...",
   "Running custom CNN inference...",
   "Computing input-gradient saliency...",
-  "Finalizing verdict...",
+  "Running FFT frequency analysis...",
+  "Checking EXIF metadata...",
+  "Combining weighted signals...",
 ];
 
 export default function AnalyzingProgress() {

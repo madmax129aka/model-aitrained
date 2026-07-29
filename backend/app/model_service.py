@@ -2,20 +2,23 @@
 Loads and serves PixelTruth's CUSTOM-TRAINED CNN model
 (backend/models/pixeltruth_model.keras).
 
-This is a model trained from scratch on the CIFAKE dataset (see
-app/config.py::TRAINING_METRICS for the real, reported evaluation numbers).
-There is no call to any external AI-detection API anywhere in this module --
-every prediction and every saliency gradient below comes from weights baked
-into pixeltruth_model.keras.
+This is a model trained from scratch on the "140k Real and Fake Faces"
+dataset (see app/config.py::TRAINING_METRICS for the real, reported
+evaluation numbers). There is no call to any external AI-detection API
+anywhere in this module -- every prediction and every saliency gradient
+below comes from weights baked into pixeltruth_model.keras, and all
+inference runs server-side in this process (no browser-based TensorFlow.js).
 
-The model architecture (see frontend/public/model/model.json, or
-backend/app/config.py::INPUT_SIZE for the current input resolution) is:
+The model architecture (see backend/app/config.py::INPUT_SIZE for the
+current input resolution, and TRAINING_METRICS["architecture_summary"] for
+the full layer-by-layer breakdown) is:
     Input(INPUT_SIZE, INPUT_SIZE, 3)
       -> [augmentation layers -- inference no-ops]
       -> Rescaling(1/255)          <-- model normalizes internally!
       -> Conv2D(32) -> BatchNorm -> MaxPool
       -> Conv2D(64) -> BatchNorm -> MaxPool
       -> Conv2D(128) -> BatchNorm -> MaxPool
+      -> Conv2D(256) -> BatchNorm -> MaxPool
       -> Flatten -> Dense(128) -> Dropout(0.5) -> Dense(1, sigmoid)
 
 Label mapping used during training: 0 = FAKE (AI-generated), 1 = REAL.
@@ -130,18 +133,12 @@ def _preprocess(image: Image.Image) -> np.ndarray:
     (1, INPUT_SIZE[0], INPUT_SIZE[1], 3). Do NOT divide by 255 here -- the
     model has its own internal Rescaling(1/255) layer that does this.
 
-    NOTE: an earlier experimental version of this function pre-blurred the
-    input (downscale to 32x32, then back up to 64x64) to match CIFAKE's
-    native 32x32 source resolution. That was reverted: testing showed it
-    just flipped the model's bias from "everything reads as FAKE" to
-    "everything reads as REAL" -- including an actual AI-generated test
-    image scoring only 1% AI probability. That result shows the model is
-    keying off image sharpness/blur as a shortcut signal rather than
-    genuine AI-generation artifacts, so "fixing" the blur level only
-    changes which direction the bias points, it does not fix the
-    underlying generalization problem. See backend/training/README.md for
-    the real fix (retrain with real-world photos mixed into the training
-    data, not just synthetic preprocessing tricks).
+    NOTE: an earlier CIFAKE-based version of this model (64x64 input) was
+    found to key off image sharpness/blur as a shortcut signal rather than
+    genuine AI-generation artifacts, because CIFAKE's source images are
+    natively only 32x32 pixels. The current model was retrained from
+    scratch on the "140k Real and Fake Faces" dataset at 128x128 input to
+    address this -- see backend/training/README.md for the full history.
     """
     resized = image.convert("RGB").resize(INPUT_SIZE, resample=Image.BILINEAR)
     arr = np.asarray(resized, dtype=np.float32)  # (H, W, 3), values 0-255

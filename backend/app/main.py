@@ -3,11 +3,14 @@ PixelTruth backend -- FastAPI application.
 
 PixelTruth is an AI image detector powered by a CUSTOM-TRAINED convolutional
 neural network (pixeltruth_model.keras), trained from scratch by the project
-author on the CIFAKE dataset (100,000 real vs. AI-generated images). This
+author on the "140k Real and Fake Faces" dataset (real FFHQ/Flickr face
+photos vs. StyleGAN-generated fake faces; 140,000 images total). This
 backend does NOT call any third-party AI-detection API at any point --
 every prediction comes from local weights loaded once at startup, and the
 explainability heatmap is a genuine input-gradient saliency map computed via
-backpropagation through our own model.
+backpropagation through our own model. ALL inference happens server-side in
+this backend via tf.keras -- there is no browser-based TensorFlow.js
+inference anywhere in this app.
 
 Run directly with:
     uvicorn app.main:app --host 0.0.0.0 --port 8000
@@ -119,7 +122,8 @@ async def model_info():
         training_curves_url="/static/model-info/training_curves.png",
         model_source=(
             "Custom-trained CNN (trained from scratch by the project author on the "
-            "CIFAKE dataset). No third-party AI-detection API is used."
+            "140k Real and Fake Faces dataset). All inference runs server-side in "
+            "this FastAPI backend -- no third-party AI-detection API is used."
         ),
     )
 

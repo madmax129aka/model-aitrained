@@ -4,6 +4,8 @@ import AnalyzingProgress from "../components/AnalyzingProgress.jsx";
 import VerdictCard from "../components/VerdictCard.jsx";
 import SignalBreakdownPanel from "../components/SignalBreakdownPanel.jsx";
 import HeatmapViewer from "../components/HeatmapViewer.jsx";
+import FFTViewer from "../components/FFTViewer.jsx";
+import MetadataBadges from "../components/MetadataBadges.jsx";
 import { analyzeImage, downloadReport } from "../api.js";
 import { addHistoryEntry } from "../history.js";
 
@@ -42,12 +44,18 @@ export default function AnalyzerPage() {
     }
   }
 
+  const exifSignal = result?.signals?.find((s) => s.name === "Metadata / EXIF Check");
+  const fftSignal = result?.signals?.find((s) => s.name === "Frequency Domain (FFT) Analysis");
+
   return (
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-100">Image Analyzer</h1>
         <p className="text-slate-500 mt-1 text-sm">
-          Upload an image to run it through our custom-trained CNN model.
+          Upload an image to run it through our custom-trained CNN, frequency
+          analysis, and metadata forensics. Detection works best on photos
+          containing a clear human face, since that's what our model was
+          trained on.
         </p>
       </div>
 
@@ -75,10 +83,16 @@ export default function AnalyzerPage() {
             downloading={downloading}
           />
           <SignalBreakdownPanel signals={result.signals} />
-          <HeatmapViewer
-            originalImage={result.original_image}
-            heatmapImage={result.heatmap_image}
-          />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <HeatmapViewer
+              originalImage={result.original_image}
+              heatmapImage={result.heatmap_image}
+            />
+            <div className="flex flex-col gap-6">
+              <FFTViewer fftImage={result.fft_spectrum_image} details={fftSignal?.details} />
+              <MetadataBadges exifSignal={exifSignal} />
+            </div>
+          </div>
         </div>
       )}
     </div>

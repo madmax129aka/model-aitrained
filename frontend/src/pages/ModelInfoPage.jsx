@@ -84,7 +84,7 @@ export default function ModelInfoPage() {
         <MetricCard label="Overall Accuracy" value={`${(info.overall_accuracy * 100).toFixed(0)}%`} />
         <MetricCard label="Dataset Size" value={info.dataset.total_images.toLocaleString()} accent="#34d399" />
         <MetricCard label="Test Set Size" value={info.test_set.total_images.toLocaleString()} accent="#f59e0b" />
-        <MetricCard label="Train/Val Split" value={info.dataset.train_val_split} accent="#a78bfa" />
+        <MetricCard label="Train/Val/Test Split" value={info.dataset.train_val_test_split} accent="#a78bfa" />
       </div>
 
       <div className="glass-panel rounded-xl p-6">
