@@ -1,0 +1,10 @@
+# Optional TensorFlow.js export dependencies.
+#
+# Install this ONLY in a separate step/environment from
+# requirements-training.txt -- tensorflowjs pins its own tensorflow version,
+# which conflicts with the tensorflow that training itself needs (and with
+# Colab's preinstalled tensorflow). Run training first, save the .keras
+# model, THEN switch to an environment with these installed if you need a
+# browser-side (TF.js) copy of the model.
+tensorflow==2.16.1
+tensorflowjs==4.20.0
