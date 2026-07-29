@@ -1,12 +1,21 @@
 # PixelTruth backend dependencies
-# NOTE: pixeltruth_model.keras is a Keras 3 model. TensorFlow >= 2.16 ships
-# Keras 3 by default, which is required to load this .keras file correctly.
+# NOTE: pixeltruth_model.keras (the 128x128, 4-conv-block faces model) was
+# trained and saved in Google Colab using TensorFlow 2.20.0 / Keras 3.13.2,
+# confirmed via backend/training/diagnose_model.py to produce healthy,
+# varied outputs under that exact version. This backend was previously
+# pinned to tensorflow==2.16.1 (an older Keras 3.x release) while
+# reproducing a suspicious always-near-0.0 prediction bug -- pinning to
+# 2.20.0 to match the training environment exactly, to test whether a
+# cross-version .keras loading mismatch explains the symptom. Re-run
+# diagnose_model.py locally (matching your deployed environment) if this
+# does not resolve it, to confirm/rule out this theory with direct evidence
+# rather than assumption.
 # All inference happens server-side via this backend -- there is no
 # browser-based TensorFlow.js model anywhere in this project.
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
 python-multipart==0.0.9
-tensorflow==2.16.1
+tensorflow==2.20.0
 numpy==1.26.4
 pillow==10.4.0
 exifread==3.0.0
