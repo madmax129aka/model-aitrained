@@ -4,12 +4,31 @@ import io
 from typing import Optional
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageOps
 
 
 def load_image_rgb(image_bytes: bytes) -> Image.Image:
-    """Decode arbitrary uploaded image bytes into a PIL RGB image."""
+    """
+    Decode arbitrary uploaded image bytes into a PIL RGB image, with EXIF
+    orientation correctly applied.
+
+    Most phone cameras save portrait photos as landscape pixel data plus an
+    EXIF "Orientation" tag telling viewers to rotate/flip on display.
+    Browsers, Photos apps, etc. respect that tag automatically -- but PIL
+    does NOT unless explicitly told to. Without this correction, a photo
+    that looks perfectly normal to a human could be fed into the model
+    sideways or upside-down, which the CNN was never trained to handle (it
+    only saw mild +/-36-degree rotation augmentation, not full 90/180/270
+    degree flips) -- this can easily cause wildly wrong, overconfident
+    predictions on real user photos.
+
+    ImageOps.exif_transpose() rotates/flips the pixel data to match what a
+    viewer would actually show, then strips the now-redundant orientation
+    tag, so everything downstream (model input, thumbnails, heatmap
+    overlay) is consistently oriented.
+    """
     img = Image.open(io.BytesIO(image_bytes))
+    img = ImageOps.exif_transpose(img)
     img = img.convert("RGB")
     return img
 
