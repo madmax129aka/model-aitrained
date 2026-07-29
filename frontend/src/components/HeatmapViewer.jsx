@@ -56,13 +56,25 @@ export default function HeatmapViewer({ originalImage, heatmapImage }) {
       )}
 
       {mode === "slider" && (
-        <div className="relative w-full max-h-96 rounded-lg overflow-hidden border border-forensic-border select-none">
-          <img src={originalImage} alt="Original" className="w-full h-auto block" />
+        // Fixed-height box (matches the Original/Heatmap tabs' max-h-96) with
+        // both layers using object-contain so portrait or unusual-aspect-ratio
+        // images are scaled to fit, never cropped/zoomed. Both <img> layers
+        // share the exact same box so the divider lines up correctly.
+        <div className="relative w-full h-96 rounded-lg overflow-hidden border border-forensic-border bg-black select-none">
+          <img
+            src={originalImage}
+            alt="Original"
+            className="absolute inset-0 w-full h-full object-contain block"
+          />
           <div
             className="absolute inset-0 overflow-hidden"
             style={{ clipPath: `inset(0 ${100 - sliderPos}% 0 0)` }}
           >
-            <img src={heatmapImage} alt="Heatmap" className="w-full h-auto block" />
+            <img
+              src={heatmapImage}
+              alt="Heatmap"
+              className="absolute inset-0 w-full h-full object-contain block"
+            />
           </div>
           <div
             className="absolute top-0 bottom-0 w-0.5 bg-forensic-cyan shadow-glow-sm"
